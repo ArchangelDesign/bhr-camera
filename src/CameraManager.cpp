@@ -228,19 +228,36 @@ wxBitmap CameraManager::ConvertMediaFoundationToWxBitmap(IMFSample* sample) {
         return wxBitmap();
     }
     
-    // Create a simple test bitmap (placeholder)
-    // In a real implementation, we'd decode the actual camera data format
-    wxBitmap bitmap(currentWidth > 0 ? currentWidth : 640, 
-                   currentHeight > 0 ? currentHeight : 480);
+    int width = currentWidth > 0 ? currentWidth : 640;
+    int height = currentHeight > 0 ? currentHeight : 480;
     
-    // Create a memory device context and draw placeholder
+    // Create bitmap
+    wxBitmap bitmap(width, height);
     wxMemoryDC dc(bitmap);
-    dc.SetBrush(*wxBLACK_BRUSH);
-    dc.DrawRectangle(0, 0, bitmap.GetWidth(), bitmap.GetHeight());
     
-    // Draw a simple test pattern (you'll replace this with actual video decoding)
-    dc.SetTextForeground(*wxWHITE);
-    dc.DrawText("Camera Stream", 10, 10);
+    // For now, fill with a gradient pattern to show the frame is being captured
+    // In production, you'd decode the actual video format (NV12, YUY2, RGB32, etc.)
+    dc.SetBrush(*wxBLACK_BRUSH);
+    dc.DrawRectangle(0, 0, width, height);
+    
+    // Draw checkerboard pattern to show activity
+    int blockSize = 20;
+    for (int y = 0; y < height; y += blockSize) {
+        for (int x = 0; x < width; x += blockSize) {
+            if (((x / blockSize) + (y / blockSize)) % 2 == 0) {
+                dc.SetBrush(wxBrush(wxColour(64, 64, 64)));
+            } else {
+                dc.SetBrush(wxBrush(wxColour(96, 96, 96)));
+            }
+            dc.DrawRectangle(x, y, blockSize, blockSize);
+        }
+    }
+    
+    // Draw text in center
+    dc.SetTextForeground(wxColour(0, 200, 0));
+    wxString text = wxString::Format("Camera: %dx%d", width, height);
+    int textWidth = dc.GetTextExtent(text).GetWidth();
+    dc.DrawText(text, (width - textWidth) / 2, height / 2 - 10);
     
     buffer->Unlock();
     buffer->Release();
