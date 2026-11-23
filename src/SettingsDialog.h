@@ -3,6 +3,7 @@
 #include <wx/wx.h>
 
 class CameraManager;
+class MainFrame;
 
 class SettingsDialog : public wxDialog {
 public:
@@ -10,9 +11,11 @@ public:
     
 private:
     CameraManager* cameraManager;
+    MainFrame* mainFrame;
     wxComboBox* cameraChoice;
     wxComboBox* resolutionChoice;
     wxComboBox* framerateChoice;
+    wxCheckBox* keepAspectRatioCheckbox;
     
     void OnCameraChanged(wxCommandEvent& event);
     void OnResolutionChanged(wxCommandEvent& event);

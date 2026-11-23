@@ -1,13 +1,15 @@
 #include "SettingsDialog.h"
 #include "CameraManager.h"
+#include "MainFrame.h"
 
 wxBEGIN_EVENT_TABLE(SettingsDialog, wxDialog)
     EVT_COMBOBOX(wxID_ANY, SettingsDialog::OnCameraChanged)
 wxEND_EVENT_TABLE()
 
 SettingsDialog::SettingsDialog(wxWindow* parent, CameraManager* cameraManager)
-    : wxDialog(parent, wxID_ANY, "Camera Settings", wxDefaultPosition, wxSize(400, 300)),
-      cameraManager(cameraManager) {
+    : wxDialog(parent, wxID_ANY, "Camera Settings", wxDefaultPosition, wxSize(400, 350)),
+      cameraManager(cameraManager),
+      mainFrame(dynamic_cast<MainFrame*>(parent)) {
     
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
     
@@ -34,6 +36,11 @@ SettingsDialog::SettingsDialog(wxWindow* parent, CameraManager* cameraManager)
     framerateChoice->Bind(wxEVT_COMBOBOX, &SettingsDialog::OnFramerateChanged, this);
     fpsSizer->Add(framerateChoice, 1, wxALL, 5);
     sizer->Add(fpsSizer, 0, wxEXPAND | wxALL, 5);
+    
+    // Keep aspect ratio checkbox
+    keepAspectRatioCheckbox = new wxCheckBox(this, wxID_ANY, "Keep aspect ratio");
+    keepAspectRatioCheckbox->SetValue(mainFrame ? mainFrame->GetKeepAspectRatio() : true);
+    sizer->Add(keepAspectRatioCheckbox, 0, wxALL, 10);
     
     // Camera settings button
     wxButton* cameraSettingsBtn = new wxButton(this, wxID_ANY, "Camera Settings...");
@@ -127,6 +134,12 @@ void SettingsDialog::OnOK(wxCommandEvent& event) {
                 framerates[fpsIdx]
             );
         }
+    }
+    
+    // Update aspect ratio setting
+    if (mainFrame) {
+        mainFrame->SetKeepAspectRatio(keepAspectRatioCheckbox->GetValue());
+        mainFrame->Refresh(); // Redraw with new setting
     }
     
     EndModal(wxID_OK);

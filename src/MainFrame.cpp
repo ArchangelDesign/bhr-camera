@@ -19,7 +19,7 @@ MainFrame::MainFrame(wxWindow* parent)
     SetBackgroundColour(*wxBLACK);
     
     // Create panel to hold video - fill entire client area
-    videoPanel = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
+    videoPanel = new wxPanel(this, wxID_ANY, wxPoint(0, 0), wxDefaultSize, wxBORDER_NONE);
     videoPanel->SetBackgroundColour(*wxBLACK);
     
     // Bind events to both frame and panel for dragging
@@ -42,8 +42,8 @@ MainFrame::MainFrame(wxWindow* parent)
         wxLogError("Failed to initialize camera");
     }
     
-    // Set initial panel size to match frame client area
-    videoPanel->SetSize(GetClientSize());
+    // Set initial panel size and position to match frame client area
+    videoPanel->SetSize(0, 0, GetClientSize().GetWidth(), GetClientSize().GetHeight());
     
     // Start timer to update frames
     Bind(wxEVT_TIMER, &MainFrame::OnTimer, this);
@@ -65,28 +65,109 @@ void MainFrame::OnDoubleClick(wxMouseEvent& event) {
 }
 
 void MainFrame::OnLeftMouseDown(wxMouseEvent& event) {
-    isDragging = true;
-    dragStartPos = wxGetMousePosition() - GetPosition();
+    wxPoint mousePos = wxGetMousePosition();
+    wxRect frameRect = GetRect();
+    
+    int edgeThreshold = 10;
+    int diffTop = mousePos.y - frameRect.GetTop();
+    int diffBottom = frameRect.GetBottom() - mousePos.y;
+    int diffLeft = mousePos.x - frameRect.GetLeft();
+    int diffRight = frameRect.GetRight() - mousePos.x;
+    
+    // Check if near edge for resizing
+    resizeEdge = 0;
+    if (diffTop < edgeThreshold) resizeEdge |= 1;      // top
+    if (diffRight < edgeThreshold) resizeEdge |= 2;    // right
+    if (diffBottom < edgeThreshold) resizeEdge |= 4;   // bottom
+    if (diffLeft < edgeThreshold) resizeEdge |= 8;     // left
+    
+    if (resizeEdge) {
+        isResizing = true;
+    } else {
+        isDragging = true;
+        dragStartPos = mousePos - GetPosition();
+    }
     event.Skip();
 }
 
 void MainFrame::OnLeftMouseUp(wxMouseEvent& event) {
     isDragging = false;
+    isResizing = false;
+    resizeEdge = 0;
     event.Skip();
 }
 
 void MainFrame::OnMouseMove(wxMouseEvent& event) {
+    wxPoint mousePos = wxGetMousePosition();
+    
     if (isDragging) {
-        wxPoint mousePos = wxGetMousePosition();
         wxPoint newPos = mousePos - dragStartPos;
         Move(newPos);
+    } else if (isResizing) {
+        wxRect frameRect = GetRect();
+        int newX = frameRect.x;
+        int newY = frameRect.y;
+        int newW = frameRect.width;
+        int newH = frameRect.height;
+        
+        if (resizeEdge & 1) {  // top
+            int delta = mousePos.y - frameRect.y;
+            newY += delta;
+            newH -= delta;
+        }
+        if (resizeEdge & 2) {  // right
+            newW = mousePos.x - frameRect.x;
+        }
+        if (resizeEdge & 4) {  // bottom
+            newH = mousePos.y - frameRect.y;
+        }
+        if (resizeEdge & 8) {  // left
+            int delta = mousePos.x - frameRect.x;
+            newX += delta;
+            newW -= delta;
+        }
+        
+        // Minimum size
+        if (newW < 200) newW = 200;
+        if (newH < 150) newH = 150;
+        
+        SetSize(newX, newY, newW, newH);
+    } else {
+        // Show resize cursor when near edges
+        wxRect frameRect = GetRect();
+        int edgeThreshold = 10;
+        int diffTop = mousePos.y - frameRect.GetTop();
+        int diffBottom = frameRect.GetBottom() - mousePos.y;
+        int diffLeft = mousePos.x - frameRect.GetLeft();
+        int diffRight = frameRect.GetRight() - mousePos.x;
+        
+        int edge = 0;
+        if (diffTop < edgeThreshold) edge |= 1;
+        if (diffRight < edgeThreshold) edge |= 2;
+        if (diffBottom < edgeThreshold) edge |= 4;
+        if (diffLeft < edgeThreshold) edge |= 8;
+        
+        // Set appropriate cursor
+        wxStockCursor cursor = wxCURSOR_DEFAULT;
+        if (edge == 1 || edge == 4) cursor = wxCURSOR_SIZENS;        // top/bottom
+        else if (edge == 2 || edge == 8) cursor = wxCURSOR_SIZEWE;   // right/left
+        else if (edge == 3 || edge == 12) cursor = wxCURSOR_SIZENWSE; // top-right or bottom-left
+        else if (edge == 5 || edge == 10) cursor = wxCURSOR_SIZENESW; // top-left or bottom-right
+        
+        if (cursor != wxCURSOR_DEFAULT) {
+            SetCursor(wxCursor(cursor));
+        } else {
+            SetCursor(wxCursor(wxCURSOR_DEFAULT));
+        }
     }
     event.Skip();
 }
 
 void MainFrame::OnFrameSizeChanged(wxSizeEvent& event) {
     // Fill entire frame with video panel
-    videoPanel->SetSize(GetClientSize());
+    if (videoPanel) {
+        videoPanel->SetSize(0, 0, GetClientSize().GetWidth(), GetClientSize().GetHeight());
+    }
     event.Skip();
 }
 
@@ -96,16 +177,75 @@ void MainFrame::OnPaint(wxPaintEvent& event) {
         wxSize panelSize = videoPanel->GetSize();
         
         if (currentFrame.IsOk()) {
-            // We have a real frame - display it
-            if (currentFrame.GetWidth() == panelSize.GetWidth() && 
-                currentFrame.GetHeight() == panelSize.GetHeight()) {
-                // Perfect size - just draw it
-                dc.DrawBitmap(currentFrame, 0, 0, false);
+            if (keepAspectRatio) {
+                // Check if frame has actually changed
+                bool frameChanged = (lastCachedBitmap.GetRefData() != currentFrame.GetRefData());
+                
+                // Check if we need to regenerate the cached scaled frame
+                bool needsRescale = !cachedScaledFrame.IsOk() || 
+                                   frameChanged ||
+                                   cachedWindowSize != panelSize;
+                
+                if (needsRescale) {
+                    // Calculate scaling dimensions
+                    int frameWidth = currentFrame.GetWidth();
+                    int frameHeight = currentFrame.GetHeight();
+                    int panelWidth = panelSize.GetWidth();
+                    int panelHeight = panelSize.GetHeight();
+                    
+                    // Ensure valid dimensions
+                    if (panelWidth <= 0 || panelHeight <= 0) {
+                        return;
+                    }
+                    
+                    double scaleX = (double)panelWidth / frameWidth;
+                    double scaleY = (double)panelHeight / frameHeight;
+                    double scale = wxMin(scaleX, scaleY);
+                    
+                    int scaledWidth = (int)(frameWidth * scale);
+                    int scaledHeight = (int)(frameHeight * scale);
+                    int offsetX = (panelWidth - scaledWidth) / 2;
+                    int offsetY = (panelHeight - scaledHeight) / 2;
+                    
+                    // Create cached bitmap with black background and scaled frame
+                    wxBitmap fullBitmap(panelWidth, panelHeight);
+                    wxMemoryDC memDC;
+                    memDC.SelectObject(fullBitmap);
+                    
+                    // Fill entire bitmap with black first
+                    memDC.SetBrush(wxBrush(wxColour(0, 0, 0)));
+                    memDC.SetPen(*wxTRANSPARENT_PEN);
+                    memDC.DrawRectangle(0, 0, panelWidth, panelHeight);
+                    
+                    // Draw scaled frame centered
+                    wxImage frameImg = currentFrame.ConvertToImage();
+                    frameImg.Rescale(scaledWidth, scaledHeight, wxIMAGE_QUALITY_HIGH);
+                    wxBitmap scaledBitmap = wxBitmap(frameImg);
+                    if (scaledBitmap.IsOk()) {
+                        memDC.DrawBitmap(scaledBitmap, offsetX, offsetY, false);
+                    }
+                    
+                    memDC.SelectObject(wxNullBitmap);
+                    
+                    cachedScaledFrame = fullBitmap;
+                    lastCachedBitmap = currentFrame;
+                    cachedWindowSize = panelSize;
+                }
+                
+                // Draw the cached scaled frame
+                if (cachedScaledFrame.IsOk()) {
+                    dc.DrawBitmap(cachedScaledFrame, 0, 0, false);
+                }
             } else {
-                // Need to scale - rescale the frame to fit
-                wxImage img = currentFrame.ConvertToImage();
-                img.Rescale(panelSize.GetWidth(), panelSize.GetHeight(), wxIMAGE_QUALITY_HIGH);
-                dc.DrawBitmap(wxBitmap(img), 0, 0, false);
+                // Stretch to fill entire panel
+                if (currentFrame.GetWidth() == panelSize.GetWidth() && 
+                    currentFrame.GetHeight() == panelSize.GetHeight()) {
+                    dc.DrawBitmap(currentFrame, 0, 0, false);
+                } else {
+                    wxImage img = currentFrame.ConvertToImage();
+                    img.Rescale(panelSize.GetWidth(), panelSize.GetHeight(), wxIMAGE_QUALITY_HIGH);
+                    dc.DrawBitmap(wxBitmap(img), 0, 0, false);
+                }
             }
         } else {
             // No frame yet - draw test pattern so we know something is happening
