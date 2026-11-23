@@ -39,6 +39,8 @@ private:
     void OnLeftMouseUp(wxMouseEvent& event);
     void OnMouseMove(wxMouseEvent& event);
     void OnTimer(wxTimerEvent& event);
+    void OnKeyDown(wxKeyEvent& event);
+    void OnCloseWindow(wxCloseEvent& event);
     
     void RenderFrame();
     

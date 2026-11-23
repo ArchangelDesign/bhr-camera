@@ -10,6 +10,8 @@ wxBEGIN_EVENT_TABLE(MainFrame, wxFrame)
     EVT_LEFT_UP(MainFrame::OnLeftMouseUp)
     EVT_MOTION(MainFrame::OnMouseMove)
     EVT_TIMER(wxID_ANY, MainFrame::OnTimer)
+    EVT_KEY_DOWN(MainFrame::OnKeyDown)
+    EVT_CLOSE(MainFrame::OnCloseWindow)
 wxEND_EVENT_TABLE()
 
 MainFrame::MainFrame(wxWindow* parent)
@@ -33,6 +35,7 @@ MainFrame::MainFrame(wxWindow* parent)
     videoPanel->Bind(wxEVT_LEFT_UP, &MainFrame::OnLeftMouseUp, this);
     videoPanel->Bind(wxEVT_MOTION, &MainFrame::OnMouseMove, this);
     videoPanel->Bind(wxEVT_PAINT, &MainFrame::OnPaint, this);
+    videoPanel->Bind(wxEVT_KEY_DOWN, &MainFrame::OnKeyDown, this);
     
     // Initialize camera manager
     cameraManager = std::make_unique<CameraManager>();
@@ -331,4 +334,36 @@ void MainFrame::RenderFrame() {
     if (videoPanel) {
         videoPanel->Refresh(false);
     }
+}
+
+void MainFrame::OnKeyDown(wxKeyEvent& event) {
+    if (event.GetKeyCode() == WXK_ESCAPE) {
+        // Show confirmation dialog
+        wxMessageDialog dialog(this, 
+            "Do you want to close the application?",
+            "BHR Camera",
+            wxYES_NO | wxICON_QUESTION);
+        
+        if (dialog.ShowModal() == wxID_YES) {
+            Close(true);  // Force close
+        }
+    }
+    event.Skip();
+}
+
+void MainFrame::OnCloseWindow(wxCloseEvent& event) {
+    // Stop the timer first to prevent paint updates during shutdown
+    if (timer) {
+        timer->Stop();
+        delete timer;
+        timer = nullptr;
+    }
+    
+    // Stop camera capture immediately
+    if (cameraManager) {
+        cameraManager->Stop();
+    }
+    
+    // Destroy the window
+    event.Skip();
 }
