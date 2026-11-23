@@ -10,8 +10,8 @@ REM ============================================================================
 
 set "WXWIDGETS_ROOT=C:\wxWidgets"
 set "WXWIDGETS_LIB=C:\wxWidgets\lib\vc_x64_lib"
-REM Use Visual Studio generator - will be set dynamically based on detected version
-set "CMAKE_GENERATOR=Visual Studio 17 2022"
+REM Use NMake Makefiles generator which uses the vcvars environment we set up
+set "CMAKE_GENERATOR=NMake Makefiles"
 set "PLATFORM=x64"
 
 REM ============================================================================
@@ -85,18 +85,19 @@ if errorlevel 1 (
     )
     
     REM Detect Visual Studio version for CMake generator
+    REM Note: VS 2024 (version 18) works with Visual Studio 17 2022 generator
     if exist "C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC" (
-        set "CMAKE_GENERATOR=Visual Studio 18 2026"
+        set "CMAKE_GENERATOR=NMake Makefiles"
     ) else if exist "C:\Program Files\Microsoft Visual Studio\18\Professional\VC\Tools\MSVC" (
-        set "CMAKE_GENERATOR=Visual Studio 18 2026"
+        set "CMAKE_GENERATOR=NMake Makefiles"
     ) else if exist "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC" (
-        set "CMAKE_GENERATOR=Visual Studio 18 2026"
+        set "CMAKE_GENERATOR=NMake Makefiles"
     ) else if exist "C:\Program Files\Microsoft Visual Studio\17\Community\VC\Tools\MSVC" (
-        set "CMAKE_GENERATOR=Visual Studio 17 2022"
+        set "CMAKE_GENERATOR=NMake Makefiles"
     ) else if exist "C:\Program Files\Microsoft Visual Studio\17\Professional\VC\Tools\MSVC" (
-        set "CMAKE_GENERATOR=Visual Studio 17 2022"
+        set "CMAKE_GENERATOR=NMake Makefiles"
     ) else if exist "C:\Program Files\Microsoft Visual Studio\17\Enterprise\VC\Tools\MSVC" (
-        set "CMAKE_GENERATOR=Visual Studio 17 2022"
+        set "CMAKE_GENERATOR=NMake Makefiles"
     )
 ) else (
     echo     ✓ Visual Studio Build Tools found in PATH
@@ -265,10 +266,10 @@ echo ═════════════════════════
 echo                              ✓ BUILD SUCCESSFUL!
 echo ════════════════════════════════════════════════════════════════════════════════
 echo.
-echo   Executable: %CD%\build\Release\bhr-camera.exe
+echo   Executable: %CD%\build\bhr-camera.exe
 echo.
 echo   Next steps:
-echo     1. Launch the app: build\Release\bhr-camera.exe
+echo     1. Launch the app: build\bhr-camera.exe
 echo     2. Or open in VS Code for debugging: Press Ctrl+Shift+D
 echo     3. Set breakpoints and press F5 to debug
 echo.
