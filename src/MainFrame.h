@@ -14,6 +14,7 @@ private:
     std::unique_ptr<CameraManager> cameraManager;
     wxPanel* videoPanel;
     wxBitmap currentFrame;
+    wxTimer* timer = nullptr;
     
     // Dragging state
     bool isDragging = false;

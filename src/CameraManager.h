@@ -62,4 +62,7 @@ private:
     CameraInfo GetCameraInfo(IMFActivate* device);
     bool CaptureFrame();
     wxBitmap ConvertMediaFoundationToWxBitmap(IMFSample* sample);
+    wxBitmap ConvertRGB32ToWxBitmap(BYTE* data, int width, int height);
+    wxBitmap ConvertNV12ToWxBitmap(BYTE* data, int width, int height);
+    wxBitmap ConvertYUY2ToWxBitmap(BYTE* data, int width, int height);
 };
