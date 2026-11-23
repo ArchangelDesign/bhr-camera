@@ -1,0 +1,22 @@
+{
+    "C_Cpp.default.compilerPath": "cl.exe",
+    "C_Cpp.default.cppStandard": "c++17",
+    "C_Cpp.default.intelliSenseEngine": "default",
+    "C_Cpp.codeAnalysis.exclude": {
+        "**/build": true,
+        "**/CMakeFiles": true
+    },
+    "C_Cpp.formatting": "Default",
+    "editor.formatOnSave": false,
+    "search.exclude": {
+        "**/build": true,
+        "**/CMakeFiles": true,
+        "**/.cmake": true
+    },
+    "files.exclude": {
+        "**/.cmake": true,
+        "**/CMakeCache.txt": true,
+        "**/*.o": true,
+        "**/*.obj": true
+    }
+}

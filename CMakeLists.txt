@@ -65,7 +65,7 @@ target_include_directories(bhr-camera PRIVATE ${wxWidgets_INCLUDE_DIRS})
 
 # Add wxWidgets definitions
 target_compile_options(bhr-camera PRIVATE ${wxWidgets_CXX_FLAGS})
-target_compile_options(bhr-camera PRIVATE /D_UNICODE /D_CRT_SECURE_NO_WARNINGS /MD /D__WXMSW__ /DWIN32 /D_WINDOWS)
+target_compile_options(bhr-camera PRIVATE /D_UNICODE /D_CRT_SECURE_NO_WARNINGS /MD /D__WXMSW__ /DWIN32 /D_WINDOWS /DWIN32_LEAN_AND_MEAN)
 
 # Use dynamic runtime library like wxWidgets
 set_property(TARGET bhr-camera PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreadedDLL")
