@@ -68,7 +68,7 @@ void MainFrame::OnLeftMouseDown(wxMouseEvent& event) {
     wxPoint mousePos = wxGetMousePosition();
     wxRect frameRect = GetRect();
     
-    int edgeThreshold = 10;
+    int edgeThreshold = 15;
     int diffTop = mousePos.y - frameRect.GetTop();
     int diffBottom = frameRect.GetBottom() - mousePos.y;
     int diffLeft = mousePos.x - frameRect.GetLeft();
@@ -76,21 +76,26 @@ void MainFrame::OnLeftMouseDown(wxMouseEvent& event) {
     
     // Check if near edge for resizing
     resizeEdge = 0;
-    if (diffTop < edgeThreshold) resizeEdge |= 1;      // top
-    if (diffRight < edgeThreshold) resizeEdge |= 2;    // right
-    if (diffBottom < edgeThreshold) resizeEdge |= 4;   // bottom
-    if (diffLeft < edgeThreshold) resizeEdge |= 8;     // left
+    if (diffTop < edgeThreshold && diffTop >= 0) resizeEdge |= 1;      // top
+    if (diffRight < edgeThreshold && diffRight >= 0) resizeEdge |= 2;    // right
+    if (diffBottom < edgeThreshold && diffBottom >= 0) resizeEdge |= 4;   // bottom
+    if (diffLeft < edgeThreshold && diffLeft >= 0) resizeEdge |= 8;     // left
     
     if (resizeEdge) {
         isResizing = true;
+        CaptureMouse();  // Capture mouse even when cursor leaves window
     } else {
         isDragging = true;
         dragStartPos = mousePos - GetPosition();
+        CaptureMouse();  // Also capture for dragging
     }
     event.Skip();
 }
 
 void MainFrame::OnLeftMouseUp(wxMouseEvent& event) {
+    if (HasCapture()) {
+        ReleaseMouse();
+    }
     isDragging = false;
     isResizing = false;
     resizeEdge = 0;
@@ -100,10 +105,10 @@ void MainFrame::OnLeftMouseUp(wxMouseEvent& event) {
 void MainFrame::OnMouseMove(wxMouseEvent& event) {
     wxPoint mousePos = wxGetMousePosition();
     
-    if (isDragging) {
+    if (isDragging && HasCapture()) {
         wxPoint newPos = mousePos - dragStartPos;
         Move(newPos);
-    } else if (isResizing) {
+    } else if (isResizing && HasCapture()) {
         wxRect frameRect = GetRect();
         int newX = frameRect.x;
         int newY = frameRect.y;
@@ -135,30 +140,30 @@ void MainFrame::OnMouseMove(wxMouseEvent& event) {
     } else {
         // Show resize cursor when near edges
         wxRect frameRect = GetRect();
-        int edgeThreshold = 10;
+        int edgeThreshold = 15;
         int diffTop = mousePos.y - frameRect.GetTop();
         int diffBottom = frameRect.GetBottom() - mousePos.y;
         int diffLeft = mousePos.x - frameRect.GetLeft();
         int diffRight = frameRect.GetRight() - mousePos.x;
         
         int edge = 0;
-        if (diffTop < edgeThreshold) edge |= 1;
-        if (diffRight < edgeThreshold) edge |= 2;
-        if (diffBottom < edgeThreshold) edge |= 4;
-        if (diffLeft < edgeThreshold) edge |= 8;
+        if (diffTop < edgeThreshold && diffTop >= 0) edge |= 1;
+        if (diffRight < edgeThreshold && diffRight >= 0) edge |= 2;
+        if (diffBottom < edgeThreshold && diffBottom >= 0) edge |= 4;
+        if (diffLeft < edgeThreshold && diffLeft >= 0) edge |= 8;
         
         // Set appropriate cursor
         wxStockCursor cursor = wxCURSOR_DEFAULT;
-        if (edge == 1 || edge == 4) cursor = wxCURSOR_SIZENS;        // top/bottom
-        else if (edge == 2 || edge == 8) cursor = wxCURSOR_SIZEWE;   // right/left
-        else if (edge == 3 || edge == 12) cursor = wxCURSOR_SIZENWSE; // top-right or bottom-left
-        else if (edge == 5 || edge == 10) cursor = wxCURSOR_SIZENESW; // top-left or bottom-right
+        if ((edge & 1) && !(edge & 2) && !(edge & 8)) cursor = wxCURSOR_SIZENS;        // top only
+        else if ((edge & 4) && !(edge & 2) && !(edge & 8)) cursor = wxCURSOR_SIZENS;   // bottom only
+        else if ((edge & 2) && !(edge & 1) && !(edge & 4)) cursor = wxCURSOR_SIZEWE;   // right only
+        else if ((edge & 8) && !(edge & 1) && !(edge & 4)) cursor = wxCURSOR_SIZEWE;   // left only
+        else if ((edge & 1) && (edge & 2)) cursor = wxCURSOR_SIZENWSE;                 // top-right
+        else if ((edge & 1) && (edge & 8)) cursor = wxCURSOR_SIZENESW;                 // top-left
+        else if ((edge & 4) && (edge & 2)) cursor = wxCURSOR_SIZENESW;                 // bottom-right
+        else if ((edge & 4) && (edge & 8)) cursor = wxCURSOR_SIZENWSE;                 // bottom-left
         
-        if (cursor != wxCURSOR_DEFAULT) {
-            SetCursor(wxCursor(cursor));
-        } else {
-            SetCursor(wxCursor(wxCURSOR_DEFAULT));
-        }
+        SetCursor(wxCursor(cursor));
     }
     event.Skip();
 }
@@ -246,6 +251,28 @@ void MainFrame::OnPaint(wxPaintEvent& event) {
                     img.Rescale(panelSize.GetWidth(), panelSize.GetHeight(), wxIMAGE_QUALITY_HIGH);
                     dc.DrawBitmap(wxBitmap(img), 0, 0, false);
                 }
+            }
+            
+            // Draw watermark in bottom right
+            wxString watermark = "Developed by Black Horse Repairs LLC";
+            wxFont watermarkFont(8, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL);
+            dc.SetFont(watermarkFont);
+            dc.SetTextForeground(wxColour(200, 200, 200));
+            wxSize textSize = dc.GetTextExtent(watermark);
+            int watermarkX = panelSize.GetWidth() - textSize.GetWidth() - 25;
+            int watermarkY = panelSize.GetHeight() - textSize.GetHeight() - 10;
+            dc.DrawText(watermark, watermarkX, watermarkY);
+            
+            // Draw subtle resize handle in bottom-right corner
+            int handleSize = 15;
+            int handleX = panelSize.GetWidth() - handleSize;
+            int handleY = panelSize.GetHeight() - handleSize;
+            
+            // Draw diagonal lines forming resize indicator (like a corner grip)
+            dc.SetPen(wxPen(wxColour(100, 100, 100), 1));
+            for (int i = 0; i < 3; i++) {
+                int offset = i * 4;
+                dc.DrawLine(handleX + offset, handleY + handleSize, handleX + handleSize, handleY + offset);
             }
         } else {
             // No frame yet - draw test pattern so we know something is happening
